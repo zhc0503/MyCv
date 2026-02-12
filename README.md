@@ -1,2 +1,5 @@
 # MyCv
-Clash Verge Rev
+Clash Verge Rev  
+
+2026年2月12日
+大的版本更新，必须要备份，否则整个系统都有可能崩溃！！！
