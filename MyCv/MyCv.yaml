@@ -1,1 +1,38 @@
+# ===================================================
+# 基础测试配置文件 - Emily 为 Boss 特供 🛠️
+# ===================================================
 
+port: 7890
+socks-port: 7891
+allow-lan: false
+mode: rule
+log-level: info
+external-controller: 127.0.0.1:9090
+
+# 1. 代理节点 (此处放入你的真实节点)
+proxies:
+  - name: "🇺🇸 美国-奕舟朋友的VPS"
+    type: vmess
+    server: 148.135.93.200
+    port: 13206
+    uuid: "77f83f68-863f-4dd0-c0ea-a8366e6a9836"
+    alterId: 0
+    cipher: aes-128-gcm
+    network: http
+    http-opts:
+      method: "GET"
+      path:
+        - "/"
+
+# 2. 策略组 (名字必须和规则里的一致)
+proxy-groups:
+  - name: "测试"  # 确保这里和你报错中的名字一模一样
+    type: select
+    proxies:
+      - "🇺🇸 美国-奕舟朋友的VPS"
+      - DIRECT
+
+# 3. 规则
+rules:
+  - DOMAIN,browser-intake-datadoghq.com,🇸🇬 新岛策略
+  - MATCH,DIRECT
