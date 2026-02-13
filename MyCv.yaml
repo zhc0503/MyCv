@@ -1,0 +1,283 @@
+
+# 🛠️━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 基础连接设置 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━🛠️
+
+mixed-port: 7890                 # 混合端口（HTTP/SOCKS5 代理合并），所有本地流量通常走这个端口
+allow-lan: true                  # 允许局域网连接，开启后您的手机或 NAS 可以通过电脑的 IP 用代理
+bind-address: '*'                # 绑定 IP 地址，'*' 表示监听所有网卡，配合上面那行实现局域网共享
+mode: rule                       # 运行模式：规则模式（根据您写的 rules 分流），这是最常用的模式
+log-level: info                  # 日志级别：info（记录基本信息），排查问题时可以改成 debug
+external-controller: '127.0.0.1:9090' # 外部控制 API 端口，面板（如 Yacd）通过这个端口连接内核
+
+
+
+# 🌐━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ DNS 核心配置 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━🌐
+
+dns:
+  enable: true                   # 开启 Clash 内部 DNS 解析器，接管系统的 DNS 请求
+  ipv6: false                    # 关闭 IPv6 解析（国内环境下关闭可减少 DNS 污染或响应变慢）
+  
+  # 默认 DNS：用于解析自定义 DNS 的域名
+  default-nameserver: [223.5.5.5, 119.29.29.29] 
+  
+  enhanced-mode: fake-ip         # 增强模式：Fake-IP（伪装 IP），能极大加快代理建立连接的速度
+  fake-ip-range: 198.18.0.1/16   # Fake-IP 的地址池范围，通常不需要修改
+  use-hosts: true                # 是否使用系统自带的 Hosts 文件记录
+  
+  # 主 DNS：解析国内域名的首选服务器
+  nameserver: 
+    - 119.29.29.29               # 腾讯 DNS
+    - 'https://dns.alidns.com/dns-query' # 阿里加密 DNS (DoH)
+    
+  # 后备 DNS：通常用于解析被墙的域名或 nameserver 没响应时的兜底
+  fallback: 
+    - 223.5.5.5                  # 阿里公共 DNS
+    - 'https://101.102.103.104/dns-query' # 备用加密 DNS 节点
+    - 'https://doh.pub/dns-query' # 腾讯加密 DNS (DoH)
+    - 119.29.29.29               # 腾讯公共 DNS
+    
+  # 代理服务器专用 DNS：专门用于解析您机场节点域名的 DNS
+  proxy-server-nameserver: 
+    - 119.29.29.29
+    - 'https://doh.pub/dns-query'
+    
+  # 后备 DNS 过滤器：当 GEOIP 判断不是中国 IP 时，强制使用 fallback 中的解析结果
+  fallback-filter: { geoip: true, ipcidr: [240.0.0.0/4, 0.0.0.0/32] }
+
+
+
+# 🌏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 机场节点 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━🌏
+
+proxies:
+  - name: "🇺🇸 美国-奕舟朋友的VPS"
+    type: vmess
+    server: 148.135.93.200
+    port: 13206
+    uuid: "节点密码"
+    alterId: 0
+    cipher: aes-128-gcm
+    network: http
+    http-opts:
+      method: "GET"
+      path:
+        - "/"
+
+
+
+# 🌏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 机场订阅 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━🌏
+
+proxy-providers:
+
+  Airport_Sakura:
+    type: http
+    url: "樱花猫订阅链接"
+    path: ./proxies/airport_Sakura.yaml
+    interval: 86400
+    health-check: {enable: true, url: http://www.gstatic.com/generate_204, interval: 600}
+
+
+  Airport_Magic:
+    type: http
+    url: "魔法卷轴订阅链接"
+    path: ./proxies/airport_Magic.yaml
+    interval: 86400
+    health-check: {enable: true, url: http://www.gstatic.com/generate_204, interval: 600}
+
+#  Airport_Friends:
+#    type: http
+#    url: "特定订阅链接"
+#    path: ./proxies/airport_Friends.yaml
+#    interval: 86400
+#    health-check: {enable: true, url: http://www.gstatic.com/generate_204, interval: 600}
+
+
+# 🌏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 分组策略 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━🌏
+
+proxy-groups:
+
+  # --- 🇺🇸 美国策略组 ---
+  - name: "🇺🇸 美国策略"
+    type: select
+    proxies:
+      - "🇺🇸 美国-奕舟朋友的VPS"
+    use:
+      - Airport_Sakura
+      - Airport_Magic
+    filter: "美国|US|United States"
+
+  # --- 🇸🇬 新岛策略组 ---
+  - name: "🇸🇬 新岛策略"
+    type: select
+    use:
+      - Airport_Sakura
+      - Airport_Magic
+    filter: "新加坡|SG|Singapore"
+
+
+  # --- 🇹🇼 台湾策略组 ---
+  - name: "🇹🇼 台湾策略"
+    type: select
+    use:
+      - Airport_Sakura
+      - Airport_Magic
+    filter: "台湾|TW|Taiwan"
+
+
+  # # --- 🇭🇰 香港策略组 ---
+  # # 【Ctrl + /】 = 快速多行注释/取消注释
+  # - name: "🇭🇰 香港策略"
+  #   type: select
+  #   use:
+  #     - Airport_Sakura
+  #     - Airport_Magic
+  #   filter: "香港|HK|Hong Kong"
+
+
+  # --- 🇯🇵 日本策略组 ---
+  - name: "🇯🇵 日本策略"
+    type: select
+    use:
+      - Airport_Sakura
+      - Airport_Magic
+    filter: "日本|JP|Japan"
+
+  # # --- ✨ 特定节点策略组 ---
+  # - name: "✨ 美国VPS"
+  #   type: select
+  #   proxies:
+  #     - "🇺🇸 美国-奕舟朋友的VPS"
+
+
+# 🌏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 远程规则 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━🌏
+
+rule-providers:                                   # 声明远程规则提供者（从外部获取规则集）
+
+  秋风规则:                                        # 规则集的唯一名称（由您自定义，用于后续 rules 引用）
+    type: http                                    # 获取方式：http（表示通过网络链接获取）
+    behavior: classical                           # 行为模式：classical（经典模式，支持 DOMAIN, IP-CIDR 等多种规则混合）
+    url: "https://raw.githubusercontent.com/..."  # 远程规则文件的 Raw 链接，即数据的真实来源
+    path: ./rules/awavenue-ads.yaml               # 本地存储路径：下载后的规则文件会保存在 Clash 根目录的 rules 文件夹下
+    interval: 86400                               # 更新间隔：86400 秒（即 24 小时），Clash 会每隔一天自动检查并下载最新规则
+
+
+
+# 🌏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 本地规则 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━🌏
+
+rules:
+
+#  👻···························· [ 广告策略 ] ·····························👻
+
+- RULE-SET,秋风规则,REJECT                               # 广告拦截
+
+#  👻···························· [ OpenAI ] ······························👻
+
+# 完整域名匹配 (DOMAIN) -> 统一指向您的聚合新加坡组
+- DOMAIN,browser-intake-datadoghq.com,🇸🇬 新岛策略       # 客户端监控数据上报
+- DOMAIN,chat.openai.com.cdn.cloudflare.net,🇸🇬 新岛策略 # ChatGPT 的 CDN 加速节点
+- DOMAIN,openai-api.arkoselabs.com,🇸🇬 新岛策略          # 登录时的 Arkose 验证服务
+- DOMAIN,openaicom-api-bdcpf8c6d2e9atf6.z01.azurefd.net,🇸🇬 新岛策略 # 微软 Azure 托管接口
+- DOMAIN,openaicomproductionae4b.blob.core.windows.net,🇸🇬 新岛策略 # 静态资源存储库
+- DOMAIN,production-openaicom-storage.azureedge.net,🇸🇬 新岛策略   # 生产环境存储 CDN
+- DOMAIN,static.cloudflareinsights.com,🇸🇬 新岛策略       # Cloudflare 页面分析统计
+
+# 域名后缀匹配 (DOMAIN-SUFFIX)
+- DOMAIN-SUFFIX,ai.com,🇸🇬 新岛策略                      # OpenAI 顶级跳转域名
+- DOMAIN-SUFFIX,algolia.net,🇸🇬 新岛策略                 # 搜索功能支持库
+- DOMAIN-SUFFIX,api.statsig.com,🇸🇬 新岛策略             # 功能配置测试统计
+- DOMAIN-SUFFIX,auth0.com,🇸🇬 新岛策略                   # 统一身份认证平台
+- DOMAIN-SUFFIX,chatgpt.com,🇸🇬 新岛策略                 # ChatGPT 官方主域名
+- DOMAIN-SUFFIX,chatgpt.livekit.cloud,🇸🇬 新岛策略       # ChatGPT 语音/实时通话服务
+- DOMAIN-SUFFIX,client-api.arkoselabs.com,🇸🇬 新岛策略   # 验证码交互接口
+- DOMAIN-SUFFIX,events.statsigapi.net,🇸🇬 新岛策略        # 灰度发布数据上报
+- DOMAIN-SUFFIX,featuregates.org,🇸🇬 新岛策略            # 实验性功能控制开关
+- DOMAIN-SUFFIX,host.livekit.cloud,🇸🇬 新岛策略          # 语音通话托管主机
+- DOMAIN-SUFFIX,identrust.com,🇸🇬 新岛策略               # SSL 证书信任根
+- DOMAIN-SUFFIX,intercom.io,🇸🇬 新岛策略                 # 客户支持与在线聊天
+- DOMAIN-SUFFIX,intercomcdn.com,🇸🇬 新岛策略             # 客户支持静态资源
+- DOMAIN-SUFFIX,launchdarkly.com,🇸🇬 新岛策略            # 软件功能开关管理
+- DOMAIN-SUFFIX,oaistatic.com,🇸🇬 新岛策略               # OpenAI 静态文件中心
+- DOMAIN-SUFFIX,oaiusercontent.com,🇸🇬 新岛策略          # 用户上传的文件及资源
+- DOMAIN-SUFFIX,observeit.net,🇸🇬 新岛策略               # 安全监控与审计
+- DOMAIN-SUFFIX,openai.com,🇸🇬 新岛策略                  # OpenAI 官网后缀
+- DOMAIN-SUFFIX,openaiapi-site.azureedge.net,🇸🇬 新岛策略 # API 文档与站点资源
+- DOMAIN-SUFFIX,openaicom.imgix.net,🇸🇬 新岛策略         # 图片处理与渲染优化
+- DOMAIN-SUFFIX,segment.io,🇸🇬 新岛策略                  # 用户行为数据分析
+- DOMAIN-SUFFIX,sentry.io,🇸🇬 新岛策略                   # 代码错误监控与日志
+- DOMAIN-SUFFIX,stripe.com,🇸🇬 新岛策略                  # 订阅支付结算系统
+- DOMAIN-SUFFIX,turn.livekit.cloud,🇸🇬 新岛策略          # 语音通话穿透服务器
+
+# 域名关键词匹配 (DOMAIN-KEYWORD)
+- DOMAIN-KEYWORD,openai,🇸🇬 新岛策略                     # 包含 openai 字符的所有域名
+
+# IP地址匹配 (IP-CIDR)
+- IP-CIDR,24.199.123.28/32,🇸🇬 新岛策略                  # OpenAI 特定服务节点 IP
+- IP-CIDR,64.23.132.171/32,🇸🇬 新岛策略                  # OpenAI 特定服务节点 IP
+
+
+# 👻━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ GoogleGemini ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━👻
+
+- DOMAIN,ai.google.dev,🇺🇸 美国策略                       # Gemini 开发人员门户
+- DOMAIN,alkalimakersuite-pa.clients6.google.com,🇺🇸 美国策略 # AI Studio 相关组件
+- DOMAIN,makersuite.google.com,🇺🇸 美国策略                # Google AI Studio 开发平台
+- DOMAIN-SUFFIX,bard.google.com,🇺🇸 美国策略               # 早期 Bard 访问后缀
+- DOMAIN-SUFFIX,deepmind.com,🇺🇸 美国策略                  # DeepMind 团队官网
+- DOMAIN-SUFFIX,deepmind.google,🇺🇸 美国策略               # DeepMind 实验室主页
+- DOMAIN-SUFFIX,gemini.google.com,🇺🇸 美国策略             # Gemini AI 聊天网页版
+- DOMAIN-SUFFIX,generativeai.google,🇺🇸 美国策略           # 生成式 AI 技术展示页
+- DOMAIN-SUFFIX,proactivebackend-pa.googleapis.com,🇺🇸 美国策略 # AI 后台预加载服务
+- DOMAIN-SUFFIX,apis.google.com,🇺🇸 美国策略               # Google 核心 API 调用
+- DOMAIN-KEYWORD,colab,🇺🇸 美国策略                        # Google Colab 实验脚本
+- DOMAIN-KEYWORD,developerprofiles,🇺🇸 美国策略           # 开发者资料中心
+- DOMAIN-KEYWORD,generativelanguage,🇺🇸 美国策略          # 生成式语言模型接口
+
+
+# 👻━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ GoogleNotebookLM ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━👻
+
+- DOMAIN-SUFFIX,notebooklm.google.com,🇺🇸 美国策略        # AI笔记应用主域名
+- DOMAIN-SUFFIX,notebooklm.google,🇺🇸 美国策略            # 通用域名匹配，覆盖所有notebooklm.google相关子域名
+- DOMAIN-KEYWORD,notebooklm,🇺🇸 美国策略                  # 匹配所有包含"notebooklm"关键字的域名，包括但不限于Google的NotebookLM服务
+
+
+# 👻━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ Binance ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━👻
+
+- DOMAIN-SUFFIX,appsflayer.com,🇹🇼 台湾策略  # 币安数据分析和归因平台
+- DOMAIN-SUFFIX,binance.info,🇹🇼 台湾策略  # 币安信息相关域名
+- DOMAIN-SUFFIX,binance.cloud,🇹🇼 台湾策略  # 币安云服务相关
+- DOMAIN-SUFFIX,binance.com,🇹🇼 台湾策略  # 币安主域名
+- DOMAIN-SUFFIX,binance.org,🇹🇼 台湾策略  # 币安组织域名，用于开源项目等
+- DOMAIN-SUFFIX,binance.me,🇹🇼 台湾策略  # 币安短域名，可能是重定向或别名
+- DOMAIN-SUFFIX,binance.im,🇹🇼 台湾策略  # 币安即时消息或相关服务
+- DOMAIN-SUFFIX,binance.cc,🇹🇼 台湾策略  # 币安国家/地区代码顶级域名
+- DOMAIN-SUFFIX,binancecnt.com,🇹🇼 台湾策略  # 币安内容分发或客户服务相关
+- DOMAIN-SUFFIX,binancefuture.com,🇹🇼 台湾策略  # 币安期货交易服务
+- DOMAIN-SUFFIX,bnappzh.co,🇹🇼 台湾策略  # 币安应用程序中文相关服务
+- DOMAIN-SUFFIX,bnbstatic.com,🇹🇼 台湾策略  # 币安静态资源服务
+- DOMAIN-SUFFIX,bnbzh.ac,🇹🇼 台湾策略  # 币安中文学术或访问相关
+- DOMAIN-SUFFIX,bntrace.com,🇹🇼 台湾策略  # 币安追踪或分析服务
+- DOMAIN-SUFFIX,saasexch.cc,🇹🇼 台湾策略  # 币安SaaS交易所服务
+- DOMAIN-SUFFIX,saasexch.com,🇹🇼 台湾策略  # 币安SaaS交易所主域名
+
+
+
+# 👻━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 本地直连 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━👻
+
+- DOMAIN-SUFFIX,local,DIRECT         # 匹配所有 .local 结尾的本地域名
+- IP-CIDR,127.0.0.0/8,DIRECT         # 环回地址（本机）
+- IP-CIDR,172.16.0.0/12,DIRECT       # 私有 B 类网络地址
+- IP-CIDR,192.168.0.0/16,DIRECT      # 私有 C 类网络地址（家庭内网）
+- IP-CIDR,10.0.0.0/8,DIRECT          # 私有 A 类网络地址
+- IP-CIDR,17.0.0.0/8,DIRECT          # Apple 内部网络地址
+- IP-CIDR,100.64.0.0/10,DIRECT       # 运营商级 NAT 地址
+- IP-CIDR,224.0.0.0/4,DIRECT         # 组播地址
+- IP-CIDR6,fe80::/10,DIRECT          # IPv6 本地链路地址
+
+
+# 👻━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 中国直连 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━👻
+
+- DOMAIN-SUFFIX,cn,DIRECT            # 所有以 .cn 结尾的域名，直连
+- DOMAIN-KEYWORD,-cn,DIRECT          # 域名中含有 “-cn” 的，直连
+- GEOIP,CN,DIRECT                    # 地理位置判断在中国，直连
+
+
+# 👻━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 终极规则 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━👻
+
+- MATCH,DIRECT                       # 剩余境外流量默认直连
